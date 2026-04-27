@@ -16,32 +16,12 @@
       ></textarea>
     </div>
 
-    <!-- API Key -->
-    <div class="card mb-6">
-      <label class="block text-brown font-serif mb-2">DeepSeek API Key</label>
-      <div class="flex gap-2">
-        <input
-          v-model="apiKey"
-          type="password"
-          placeholder="sk-..."
-          class="flex-1 px-4 py-2.5 rounded-xl bg-white/60 border border-earth/30 focus:outline-none focus:border-brown placeholder:text-brown/30 text-brown text-sm"
-        />
-        <button
-          @click="showKey = !showKey"
-          class="px-3 py-2 rounded-xl border border-earth/30 text-brown/60 hover:text-brown text-sm"
-        >
-          {{ showKey ? '隐藏' : '显示' }}
-        </button>
-      </div>
-      <p class="text-xs text-brown/40 mt-2">API Key 仅存储在本地浏览器，不会上传到服务器</p>
-    </div>
-
-    <!-- Step 2: AI Extract -->
+    <!-- AI Extract -->
     <div class="text-center mb-6">
       <button
         @click="extractWithAI"
         class="btn-primary"
-        :disabled="extracting || !content.trim() || !apiKey.trim()"
+        :disabled="extracting || !content.trim()"
       >
         {{ extracting ? '🤖 提炼中...' : '🤖 AI 提炼核心要素' }}
       </button>
@@ -53,6 +33,13 @@
       class="card mb-6 border border-red-300 bg-red-50/50"
     >
       <p class="text-red-600 text-sm">{{ error }}</p>
+    </div>
+
+    <!-- Summary -->
+    <div v-if="summary" class="card mb-6 border border-earth/30 bg-earth/10">
+      <p class="font-serif text-brown/80 text-center text-sm italic">
+        「{{ summary }}」
+      </p>
     </div>
 
     <!-- Step 3: Edit Result -->
@@ -85,7 +72,18 @@
       </button>
     </div>
 
-    <!-- Step 4: Preview & Publish -->
+    <!-- Step 4: Title & Publish -->
+    <div v-if="extractedPoints.length" class="card mb-6">
+      <label class="block text-brown font-serif mb-2">标题</label>
+      <input
+        v-model="title"
+        type="text"
+        placeholder="给这次分享取个标题……"
+        class="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-earth/30 focus:outline-none focus:border-brown placeholder:text-brown/30 text-brown"
+      />
+    </div>
+
+    <!-- Step 5: Preview -->
     <div v-if="extractedPoints.length" class="card mb-6">
       <h3 class="font-serif text-brown mb-3">预览</h3>
       <div class="bg-earth/20 rounded-xl p-4">
@@ -106,33 +104,29 @@
       <button
         @click="publish"
         class="btn-primary"
+        :disabled="publishing || !title.trim()"
       >
-        📤 发布到分享广场
+        {{ publishing ? '📤 发布中...' : '📤 发布到分享广场' }}
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+
+const API_BASE = 'http://43.133.192.17:8888'
 
 const router = useRouter()
 
 const content = ref('')
-const apiKey = ref('')
-const showKey = ref(false)
+const title = ref('')
 const extracting = ref(false)
+const publishing = ref(false)
 const error = ref('')
 const extractedPoints = ref([])
-
-onMounted(() => {
-  // Restore API key from localStorage
-  const savedKey = localStorage.getItem('low-power-deepseek-key')
-  if (savedKey) {
-    apiKey.value = savedKey
-  }
-})
+const summary = ref('')
 
 function addPoint() {
   extractedPoints.value.push('')
@@ -143,98 +137,84 @@ function removePoint(i) {
 }
 
 async function extractWithAI() {
-  if (!content.value.trim() || !apiKey.value.trim()) {
-    error.value = '请输入心得内容和API Key'
+  if (!content.value.trim()) {
+    error.value = '请输入心得内容'
     return
   }
 
-  // Save API key
-  localStorage.setItem('low-power-deepseek-key', apiKey.value)
-
   extracting.value = true
   error.value = ''
+  summary.value = ''
 
   try {
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    const response = await fetch(`${API_BASE}/api/extract`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey.value}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          {
-            role: 'system',
-            content: '你是一个低功耗生活方式的提炼者。用户会分享一段关于健康生活、极简主义、冥想、运动、欲望管理等方面的心得体会。请从中提炼出3-5条最核心的要素/要点。每一条必须是精炼的一句话（15字以内），不要使用序号。用以下JSON格式回复：{"points": ["要点1", "要点2", ...]}',
-          },
-          {
-            role: 'user',
-            content: content.value,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 500,
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content.value }),
     })
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}))
-      throw new Error(errData.error?.message || `API 请求失败 (${response.status})`)
+      throw new Error(errData.detail || `请求失败 (${response.status})`)
     }
 
     const data = await response.json()
-    const text = data.choices?.[0]?.message?.content || ''
+    extractedPoints.value = (data.points || []).slice(0, 5)
+    summary.value = data.summary || ''
 
-    // Try to parse JSON from response
-    let points = []
-    try {
-      const parsed = JSON.parse(text)
-      points = parsed.points || []
-    } catch {
-      // Fallback: extract lines
-      points = text
-        .split('\n')
-        .map((l) => l.replace(/^[\d.、\-*]+\s*/, '').trim())
-        .filter(Boolean)
-    }
-
-    extractedPoints.value = points.slice(0, 5)
     if (extractedPoints.value.length === 0) {
       extractedPoints.value = ['未能自动提炼，请手动编辑']
     }
   } catch (e) {
-    error.value = e.message || '提炼失败，请检查API Key是否正确'
+    error.value = e.message || '提炼失败，请稍后再试'
     extractedPoints.value = []
   } finally {
     extracting.value = false
   }
 }
 
-function publish() {
+async function publish() {
   const validPoints = extractedPoints.value.filter((p) => p.trim())
   if (validPoints.length === 0) {
     error.value = '请至少保留一条核心要点'
     return
   }
-
-  const share = {
-    id: Date.now(),
-    content: content.value,
-    points: validPoints,
-    date: new Date().toISOString(),
+  if (!title.value.trim()) {
+    error.value = '请输入标题'
+    return
   }
 
-  // Save to localStorage
-  const existing = JSON.parse(localStorage.getItem('low-power-shares') || '[]')
-  existing.unshift(share)
-  localStorage.setItem('low-power-shares', JSON.stringify(existing))
+  publishing.value = true
+  error.value = ''
 
-  // Reset form
-  content.value = ''
-  extractedPoints.value = []
+  try {
+    const response = await fetch(`${API_BASE}/api/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title.value,
+        content: content.value,
+        points: validPoints,
+      }),
+    })
 
-  // Navigate to square
-  router.push('/share/square')
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}))
+      throw new Error(errData.detail || `发布失败 (${response.status})`)
+    }
+
+    // Reset form
+    content.value = ''
+    title.value = ''
+    extractedPoints.value = []
+    summary.value = ''
+
+    // Navigate to square
+    router.push('/share/square')
+  } catch (e) {
+    error.value = e.message || '发布失败，请稍后再试'
+  } finally {
+    publishing.value = false
+  }
 }
 </script>
