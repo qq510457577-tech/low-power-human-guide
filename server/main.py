@@ -1,229 +1,247 @@
-"""
-人类低功耗生存指南 - 后端 API 服务
-FastAPI 应用，提供心得提炼、分享存储、点赞等功能
-"""
-
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+import uvicorn
+from datetime import datetime
 from pathlib import Path
-
-import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+
+# --- Constants ---
+WG_PASSWORD = os.environ.get("WG_PASSWORD", "changeme")
 from pydantic import BaseModel
+import httpx
 
-# ── 路径 ──────────────────────────────────────────────
-DATA_DIR = Path(__file__).parent / "data"
-SHARES_FILE = DATA_DIR / "shares.json"
+app = FastAPI(title="人类低功耗生存指南 API", version="1.1.0")
 
-# ── 应用 ──────────────────────────────────────────────
-app = FastAPI(title="人类低功耗生存指南 API", version="1.0.0")
-
-# CORS - 允许 GitHub Pages 等跨域请求
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://clawdlc.github.io",
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://43.133.192.17:8888",
-    ],
-    allow_origin_regex=".*",
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── DeepSeek ──────────────────────────────────────────
+# --- Breast Cancer API ---
+from breast_cancer_api import router as breast_cancer_router
+app.include_router(breast_cancer_router)
+
+# Paths
+BASE_DIR = Path(__file__).parent
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
+SHARES_FILE = DATA_DIR / "shares.json"
+FRONTEND_DIR = BASE_DIR.parent / "dist"  # Vite build output
+WIREGUARD_DIR = Path("/root/wireguard/www")
+
+# DeepSeek
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
+# ---------------------- Data Layer ----------------------
 
-# ── 数据 ──────────────────────────────────────────────
-def _load_shares() -> list[dict]:
+def load_shares():
     if not SHARES_FILE.exists():
         return []
     with open(SHARES_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
-
-def _save_shares(shares: list[dict]):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+def save_shares(shares):
     with open(SHARES_FILE, "w", encoding="utf-8") as f:
         json.dump(shares, f, ensure_ascii=False, indent=2)
 
+# ---------------------- API Routes ----------------------
 
-# ── 请求/响应模型 ─────────────────────────────────────
 class ExtractRequest(BaseModel):
     content: str
 
-
-class ExtractResponse(BaseModel):
-    points: list[str]
-    summary: str
-
-
-class ShareCreate(BaseModel):
+class ShareRequest(BaseModel):
     title: str
     content: str
     points: list[str]
 
-
-class LikeResponse(BaseModel):
-    id: str
-    likes: int
-
-
-# ── 路由 ──────────────────────────────────────────────
-
+@app.get("/api/health")
+def health():
+    return {
+        "status": "ok",
+        "service": "人类低功耗生存指南 API",
+        "version": "1.1.0",
+        "has_deepseek_key": bool(DEEPSEEK_API_KEY)
+    }
 
 @app.post("/api/extract")
 async def extract(req: ExtractRequest):
-    """
-    用户心得 → AI提炼 3-5 条核心要点
-    调用 DeepSeek API，prompt 为禅意极简风格
-    """
-    if not req.content.strip():
-        raise HTTPException(status_code=400, detail="心得内容不能为空")
-
+    if not req.content or len(req.content.strip()) < 5:
+        raise HTTPException(400, "心得内容至少5个字符")
+    
     if not DEEPSEEK_API_KEY:
-        # 降级：简单关键词提取
+        # Fallback: keyword extraction
+        return _fallback_extract(req.content)
+    
+    prompt = f"""你是一个禅意生活导师。请从以下用户心得中提炼出3-5条核心要点，并给出一句话总结。
+
+要求：
+- 每条要点用6字以内精炼概括，风格简洁有禅意
+- 一句话总结控制在12字以内
+- 直接输出JSON，不要任何其他内容
+
+用户心得：{req.content}
+
+输出格式：{{"points": ["要点1", "要点2", "要点3"], "summary": "一句话总结"}}"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(DEEPSEEK_URL, json={
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+                "max_tokens": 300
+            }, headers={
+                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                "Content-Type": "application/json"
+            })
+            resp.raise_for_status()
+            data = resp.json()
+            result = json.loads(data["choices"][0]["message"]["content"])
+            return {"points": result["points"], "summary": result["summary"]}
+    except Exception as e:
         return _fallback_extract(req.content)
 
-    system_prompt = (
-        "你是一位深谙低功耗生活之道的禅意导师。"
-        "用户会分享一段关于健康生活、极简主义、冥想、运动、欲望管理等方面的心得体会。"
-        "请静心品读，从中提炼出 3-5 条最核心的智慧要点。\n\n"
-        "要求：\n"
-        "- 每一条要点须精炼克制，15字以内\n"
-        "- 语气如禅语，点到即止\n"
-        "- 最后给出 20 字以内的一句话总结\n"
-        "- 仅返回 JSON，格式如下：\n"
-        '{"points": ["要点1", "要点2", ...], "summary": "一句话总结"}'
-    )
-
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": req.content},
-        ],
-        "temperature": 0.3,
-        "max_tokens": 500,
-    }
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(
-            DEEPSEEK_URL,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-            },
-            json=payload,
-        )
-
-    if resp.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail=f"DeepSeek API 调用失败: {resp.status_code}",
-        )
-
-    data = resp.json()
-    text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-    # 尝试解析 JSON
-    try:
-        result = json.loads(text)
-        points = result.get("points", [])
-        summary = result.get("summary", "")
-    except (json.JSONDecodeError, TypeError):
-        points = _parse_fallback(text)
-        summary = ""
-
-    # 兜底
-    if not points:
-        points = ["无法自动提炼，请手动编辑"]
-
-    return {"points": points[:5], "summary": summary[:40]}
-
+def _fallback_extract(content: str):
+    """Simple fallback when DeepSeek is unavailable."""
+    sentences = [s.strip() for s in content.replace("。", "。\n").split("\n") if len(s.strip()) > 6]
+    points = sentences[:4] if sentences else [content[:20]]
+    summary = content[:20] + "..." if len(content) > 20 else content
+    return {"points": points, "summary": summary}
 
 @app.post("/api/share")
-async def create_share(req: ShareCreate):
-    """提交一条分享"""
-    if not req.title.strip():
-        raise HTTPException(status_code=400, detail="标题不能为空")
-
-    now = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
-
-    record = {
+def create_share(req: ShareRequest):
+    shares = load_shares()
+    share = {
         "id": str(uuid.uuid4()),
-        "标题": req.title,
-        "内容": req.content,
-        "提炼要点": req.points,
-        "点赞数": 0,
-        "创建时间": now,
+        "title": req.title,
+        "content": req.content,
+        "points": req.points,
+        "likes": 0,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
-
-    shares = _load_shares()
-    shares.insert(0, record)  # 最新在前
-    _save_shares(shares)
-
-    return {"id": record["id"], "message": "发布成功"}
-
+    shares.insert(0, share)
+    save_shares(shares)
+    return {"id": share["id"], "message": "发布成功"}
 
 @app.get("/api/share")
-async def list_shares():
-    """获取所有分享，按点赞数降序"""
-    shares = _load_shares()
-    shares.sort(key=lambda s: s.get("点赞数", 0), reverse=True)
+def list_shares():
+    shares = load_shares()
+    shares.sort(key=lambda s: s.get("likes", 0), reverse=True)
     return shares
 
+@app.get("/api/share/{share_id}")
+def get_share(share_id: str):
+    shares = load_shares()
+    for share in shares:
+        if share["id"] == share_id:
+            return share
+    raise HTTPException(404, "分享不存在")
 
 @app.post("/api/share/{share_id}/like")
-async def like_share(share_id: str):
-    """为分享点赞"""
-    shares = _load_shares()
-    for s in shares:
-        if s.get("id") == share_id:
-            s["点赞数"] = s.get("点赞数", 0) + 1
-            _save_shares(shares)
-            return {"id": share_id, "likes": s["点赞数"]}
+def like_share(share_id: str):
+    shares = load_shares()
+    for share in shares:
+        if share["id"] == share_id:
+            share["likes"] = share.get("likes", 0) + 1
+            save_shares(shares)
+            return {"likes": share["likes"]}
+    raise HTTPException(404, "分享不存在")
 
-    raise HTTPException(status_code=404, detail="分享不存在")
+# ---------------------- Static File Serving ----------------------
 
+# Mount wireguard pages at /wireguard with password protection
+if WIREGUARD_DIR.exists():
+    def check_wg_auth(auth: str = None):
+        if not auth or not auth.startswith("Basic "):
+            return False
+        import base64
+        try:
+            decoded = base64.b64decode(auth[6:]).decode("utf-8")
+            _, password = decoded.split(":", 1)
+            return password == WG_PASSWORD
+        except:
+            return False
 
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "service": "人类低功耗生存指南 API"}
+    def wg_auth_required(authorization: str = None):
+        if not check_wg_auth(authorization):
+            from fastapi.responses import Response
+            return Response(
+                content="<html><body><h1>401 Unauthorized</h1><p>请输入密码访问 WireGuard 管理页面</p></body></html>",
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="WireGuard VPN"'},
+                media_type="text/html"
+            )
+        return None
 
+    @app.get("/wireguard")
+    @app.get("/wireguard/")
+    @app.get("/wireguard_complete.html")
+    async def wireguard_page(authorization: str = Header(None)):
+        auth_result = wg_auth_required(authorization)
+        if auth_result:
+            return auth_result
+        
+        idx = WIREGUARD_DIR / "index.html"
+        if idx.exists():
+            return FileResponse(str(idx))
+        return {"error": "WireGuard page not found"}
+    
+    # Serve static files under /wireguard/ with auth
+    @app.get("/wireguard/{file_path:path}")
+    async def wireguard_static(file_path: str, authorization: str = Header(None)):
+        auth_result = wg_auth_required(authorization)
+        if auth_result:
+            return auth_result
+        file = WIREGUARD_DIR / file_path
+        if file.exists() and file.is_file():
+            return FileResponse(str(file))
+        return {"error": "File not found"}
 
-# ── 辅助函数 ──────────────────────────────────────────
+# Portal entry page
+PORTAL_FILE = BASE_DIR / "portal.html"
 
+@app.get("/")
+async def portal():
+    portal = PORTAL_FILE
+    if portal.exists():
+        return FileResponse(str(portal))
+    return {"message": "服务入口"}
 
-def _fallback_extract(content: str) -> dict:
-    """无 API Key 时的降级方案"""
-    lines = [l.strip() for l in content.split("\n") if l.strip()]
-    # 取前5行作为要点
-    points = [l[:20] for l in lines[:5]]
-    if not points:
-        points = ["请手动编辑要点"]
-    summary = content[:30] + "…" if len(content) > 30 else content
-    return {"points": points[:5], "summary": summary}
+# Breast cancer frontend page
+BREAST_CANCER_FILE = BASE_DIR / "static" / "breast_cancer.html"
 
+@app.get("/breast-cancer")
+@app.get("/breast-cancer/")
+async def breast_cancer_page():
+    bc = BREAST_CANCER_FILE
+    if bc.exists():
+        return FileResponse(str(bc))
+    return {"error": "Breast cancer page not found"}
 
-def _parse_fallback(text: str) -> list[str]:
-    """非 JSON 响应时尝试解析文本"""
-    lines = text.strip().split("\n")
-    result = []
-    for line in lines:
-        clean = line.strip()
-        if not clean:
-            continue
-        # 去掉常见序号前缀
-        clean = clean.lstrip("0123456789.、-*#—").strip()
-        if clean:
-            result.append(clean)
-    return result[:5]
+# Serve frontend static files (Vite build) at /low-power-human-guide/
+if FRONTEND_DIR.exists():
+    app.mount("/low-power-human-guide/assets", StaticFiles(directory=str(FRONTEND_DIR / "assets")), name="assets_lowpower")
+    
+    @app.get("/low-power-human-guide/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        file_path = FRONTEND_DIR / (full_path or "index.html")
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(str(file_path))
+        index = FRONTEND_DIR / "index.html"
+        if index.exists():
+            return FileResponse(str(index))
+        return {"error": "Frontend not built"}
+
+# ---------------------- Entry ----------------------
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080)

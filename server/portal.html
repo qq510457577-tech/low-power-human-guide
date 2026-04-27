@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>服务入口</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "Noto Serif SC", "PingFang SC", sans-serif;
+  background: #F5F0E8;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.container {
+  max-width: 800px;
+  width: 100%;
+}
+h1 {
+  font-size: 1.6rem;
+  color: #4A3728;
+  text-align: center;
+  margin-bottom: 0.3rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+}
+.subtitle {
+  text-align: center;
+  color: #8B7355;
+  margin-bottom: 1.5rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.2rem 1rem;
+  text-decoration: none;
+  color: #4A3728;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  transition: all 0.3s ease;
+  border: 1px solid rgba(212, 197, 169, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+.card:active {
+  transform: scale(0.98);
+  background: #FAF7F0;
+}
+.card-icon { font-size: 1.8rem; }
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #4A3728;
+}
+.card-desc {
+  font-size: 0.8rem;
+  color: #8B7355;
+  line-height: 1.5;
+}
+.card-tag {
+  align-self: flex-start;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: #F5F0E8;
+  color: #8B7355;
+}
+.footer {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.7rem;
+  color: #B8A88A;
+}
+/* 平板及以上使用双列布局 */
+@media (min-width: 600px) {
+  body { padding: 2rem; }
+  h1 { font-size: 2rem; letter-spacing: 0.3em; }
+  .subtitle { margin-bottom: 3rem; font-size: 0.9rem; }
+  .grid { grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .card { padding: 2rem; gap: 0.8rem; }
+}
+</style>
+<script>
+function promptPassword() {
+  // 密码验证由后端 HTTP Basic Auth 处理，前端仅做跳转
+  return true;
+}
+</script>
+</head>
+<body>
+<div class="container">
+  <h1>服 务 入 口</h1>
+  <p class="subtitle">— 43.133.192.17 —</p>
+  <div class="grid">
+    <a href="/low-power-human-guide/" class="card">
+      <div class="card-icon">🧘</div>
+      <div class="card-title">人类低功耗生存指南</div>
+      <div class="card-desc">以心外无物为哲学核心的健康生活方式平台，包含自测、文章、心得分享广场</div>
+      <span class="card-tag">Vue 3 · DeepSeek AI</span>
+    </a>
+    <a href="/breast-cancer/" class="card">
+      <div class="card-icon">🏥</div>
+      <div class="card-title">乳腺癌风险评估系统</div>
+      <div class="card-desc">30+参数评估乳腺癌风险，包含职业暴露因素分析</div>
+      <span class="card-tag">FastAPI · XGBoost</span>
+    </a>
+    <a href="/wireguard" class="card" onclick="return promptPassword()">
+      <div class="card-icon">🔌</div>
+      <div class="card-title">WireGuard 配置</div>
+      <div class="card-desc">VPN 客户端二维码和配置文件管理页面（需密码访问）</div>
+      <span class="card-tag">🔒 密码保护</span>
+    </a>
+  </div>
+  <div class="footer">HTTPS · 8080 端口</div>
+</div>
+</body>
+</html>

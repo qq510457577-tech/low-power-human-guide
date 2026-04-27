@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+ <meta name="format-detection" content="telephone=no">
+ <meta name="apple-mobile-web-app-capable" content="yes">
+ <meta name="apple-mobile-web-app-status-bar-style" content="default">
+ <meta name="mobile-web-app-capable" content="yes">
+ <title>乳腺癌风险评估系统</title>
+ <style>
+ /* 基础重置 */
+ *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+ body{background:#f7f8fa;padding:16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;font-size:15px;line-height:1.5;color:#333;}
+ 
+ /* 卡片布局 */
+ .card{background:white;border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:20px;}
+ h1{color:#222;text-align:center;font-size:20px;font-weight:600;margin-bottom:8px;line-height:1.3;}
+ .subtitle{text-align:center;color:#666;font-size:14px;margin-bottom:24px;line-height:1.4;}
+ 
+ /* 章节标题 */
+ .section{margin:24px 0;}
+ .section h3{color:#333;border-left:4px solid #4a86e8;padding-left:12px;margin-bottom:16px;font-size:16px;font-weight:600;}
+ 
+ /* 表单网格 - 移动端优化 */
+ .form-grid{display:grid;grid-template-columns:1fr;gap:20px;}
+ @media (min-width: 768px) {
+ .form-grid{grid-template-columns:1fr 1fr;}
+ }
+ 
+ /* 表单组 */
+ .form-group{display:flex;flex-direction:column;gap:12px;}
+ label{font-size:15px;color:#444;font-weight:500;}
+ 
+ /* 单选按钮组 */
+ .radio-group{display:flex;gap:20px;margin-top:4px;}
+ .radio-option{display:flex;align-items:center;gap:8px;cursor:pointer;}
+ .radio-option input[type="radio"]{width:20px;height:20px;margin:0;}
+ .radio-option span{font-size:15px;color:#555;}
+ .radio-option input[type="radio"]:checked + span{color:#4a86e8;font-weight:500;}
+ 
+ /* 滑块样式 */
+ .slider-container{display:flex;flex-direction:column;gap:12px;margin-top:8px;}
+ .slider-value{display:flex;justify-content:space-between;align-items:center;}
+ .slider-value span{font-size:16px;font-weight:600;color:#4a86e8;min-width:60px;text-align:right;}
+ .slider-value .unit{font-size:14px;color:#666;margin-left:4px;}
+ input[type="range"]{width:100%;height:8px;-webkit-appearance:none;appearance:none;background:#e0e0e0;border-radius:4px;outline:none;}
+ input[type="range"]::-webkit-slider-thumb{width:24px;height:24px;-webkit-appearance:none;appearance:none;background:#4a86e8;border-radius:50%;cursor:pointer;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);}
+ input[type="range"]::-moz-range-thumb{width:24px;height:24px;background:#4a86e8;border-radius:50%;cursor:pointer;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);}
+ 
+ /* 化学信息卡片 */
+ .chemical-info{background:#f8f9fa;border-radius:8px;padding:12px;margin-top:8px;border-left:3px solid #4a86e8;}
+ .chemical-name{font-weight:600;color:#2c3e50;margin-bottom:4px;font-size:14px;}
+ .chemical-detail{font-size:13px;color:#666;margin-bottom:6px;line-height:1.4;}
+ .chemical-hazard{font-size:12px;color:#c0392b;background:#fdeaea;padding:6px 10px;border-radius:5px;margin:6px 0;line-height:1.4;}
+ .chemical-protection{font-size:12px;color:#27ae60;background:#eafaf1;padding:6px 10px;border-radius:5px;margin:6px 0;line-height:1.4;}
+ .info-icon{color:#4a86e8;margin-right:6px;font-size:14px;}
+ 
+ /* 数字输入框（备用） */
+ .number-input{display:flex;align-items:center;gap:10px;}
+ .number-input input{flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:10px;font-size:16px;background:#fff;}
+ .number-input .unit{font-size:14px;color:#666;min-width:40px;}
+ 
+ /* 按钮 */
+ .btn{background:#4a86e8;color:white;border:none;padding:18px 24px;border-radius:12px;font-size:17px;font-weight:600;margin-top:24px;cursor:pointer;width:100%;transition:all 0.2s;touch-action:manipulation;}
+ .btn:hover,.btn:active{background:#3b73cc;transform:translateY(-1px);}
+ .btn:active{transform:translateY(0);}
+ 
+ /* 结果区域 */
+ .result{margin-top:24px;padding:20px;border-radius:12px;background:#eef5ff;text-align:center;}
+ .high{color:#c52233;background:#fde6e8;}
+ .low{color:#2e7d32;background:#e6f4e9;}
+ .mid{color:#f57c00;background:#fff4e5;}
+ .very-high{color:#b71c1c;background:#ffebee;}
+ 
+ /* 建议卡片 */
+ .advice-card{background:#fff;border-radius:10px;padding:16px;margin:12px 0;text-align:left;border-left:4px solid #4a86e8;line-height:1.6;}
+ .advice-card h4{margin:0 0 10px 0;color:#333;font-size:16px;font-weight:600;}
+ 
+ /* 图表组 */
+ .chart-group{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:16px 0;}
+ .chart-group img{max-width:100%;border-radius:8px;border:1px solid #eee;}
+ 
+ /* 信息框 */
+ .info-box{background:#e8f4fd;border-left:4px solid #4a86e8;padding:14px 16px;margin:16px 0;border-radius:6px;}
+ .info-box h4{margin:0 0 10px 0;color:#2c3e50;font-size:15px;font-weight:600;}
+ .info-box p{margin:0;color:#555;font-size:14px;line-height:1.6;}
+ 
+ /* 移动端优化 */
+ @media (max-width: 480px) {
+ body{padding:12px;}
+ .card{padding:16px;}
+ h1{font-size:18px;}
+ .section h3{font-size:15px;}
+ .radio-group{gap:12px;}
+ .btn{padding:16px 20px;font-size:16px;}
+ }
+ 
+ /* 防止iOS缩放 */
+ input[type="number"]{font-size:16px;}
+ 
+ /* 加载状态 */
+ .loading{display:none;text-align:center;padding:20px;color:#666;}
+ .spinner{border:3px solid #f3f3f3;border-top:3px solid #4a86e8;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto 10px;}
+ @keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+ 
+ /* 滑块值显示动画 */
+ .slider-value span{transition:color 0.3s ease;}
+ input[type="range"]:active + .slider-value span{color:#2c3e50;}
+ </style>
+</head>
+<body>
+ <div class="card">
+ <h1>石油行业女性乳腺癌风险预测</h1>
+ <div class="subtitle">基于职业暴露+生活习惯 - 专业评估，易懂指导</div>
+ 
+ <div class="info-box">
+ <h4>📋 使用说明</h4>
+ <p>请根据您的实际情况填写以下信息。系统将基于科学模型评估您的乳腺癌风险，并提供个性化的健康建议。</p>
+ </div>
+
+ <!-- 一、职业岗位信息 -->
+ <div class="section">
+ <h3>🏭 一、职业岗位信息</h3>
+ <div class="form-grid">
+ <div class="form-group">
+ <label>实验室岗位</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="occ_lab_0" name="occ_lab" value="0" checked>
+ <span for="occ_lab_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="occ_lab_1" name="occ_lab" value="1">
+ <span for="occ_lab_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">从事实验室分析、检测等工作</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>石化工艺/辅助岗</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="occ_process_0" name="occ_process" value="0" checked>
+ <span for="occ_process_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="occ_process_1" name="occ_process" value="1">
+ <span for="occ_process_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">从事石油化工生产、设备操作等</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>污水处理岗</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="occ_water_0" name="occ_water" value="0" checked>
+ <span for="occ_water_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="occ_water_1" name="occ_water" value="1">
+ <span for="occ_water_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">从事工业废水处理、水质监测等</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>行业工龄（年）</label>
+ <div class="slider-container">
+ <input type="range" id="work_years" min="0" max="40" value="10" step="0.5">
+ <div class="slider-value">
+ <span id="work_years_value">10</span>
+ <span class="unit">年</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">在石油行业工作的总年限</div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- 二、化学物质暴露 -->
+ <div class="section">
+ <h3>🧪 二、化学物质暴露评估</h3>
+ <div class="info-box">
+ <h4>💡 重要提示</h4>
+ <p>以下化学物质在石油行业工作环境中常见。长期暴露可能增加健康风险，请根据您的实际工作情况如实选择。</p>
+ </div>
+ 
+ <div class="form-grid">
+ <div class="form-group">
+ <label>苯系物暴露</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="exp_benzene_0" name="exp_benzene" value="0" checked>
+ <span for="exp_benzene_0">否，不接触或很少接触</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="exp_benzene_1" name="exp_benzene" value="1">
+ <span for="exp_benzene_1">是，经常接触</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-name">苯、甲苯、二甲苯</div>
+ <div class="chemical-detail"><span class="info-icon">📍</span>常见于：汽油、油漆、胶粘剂、清洗剂</div>
+ <div class="chemical-hazard">⚠️ 健康风险：可能影响造血系统，长期暴露增加癌症风险</div>
+ <div class="chemical-protection">🛡️ 防护建议：佩戴防毒面具，确保通风良好</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>多环芳烃暴露</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="exp_pahs_0" name="exp_pahs" value="0" checked>
+ <span for="exp_pahs_0">否，不接触或很少接触</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="exp_pahs_1" name="exp_pahs" value="1">
+ <span for="exp_pahs_1">是，经常接触</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-name">萘、菲、芘、苯并芘</div>
+ <div class="chemical-detail"><span class="info-icon">📍</span>常见于：石油焦、煤焦油、烟尘、烧烤食品</div>
+ <div class="chemical-hazard">⚠️ 健康风险：强致癌物，易在体内积累，损伤DNA</div>
+ <div class="chemical-protection">🛡️ 防护建议：穿戴防护服，工作后彻底清洗</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>重金属暴露</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="exp_heavy_metal_0" name="exp_heavy_metal" value="0" checked>
+ <span for="exp_heavy_metal_0">否，不接触或很少接触</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="exp_heavy_metal_1" name="exp_heavy_metal" value="1">
+ <span for="exp_heavy_metal_1">是，经常接触</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-name">砷、铅、铬、汞</div>
+ <div class="chemical-detail"><span class="info-icon">📍</span>常见于：催化剂、防腐剂、废水、土壤</div>
+ <div class="chemical-hazard">⚠️ 健康风险：损害神经系统，干扰内分泌，有致癌性</div>
+ <div class="chemical-protection">🛡️ 防护建议：戴手套操作，避免皮肤直接接触</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>石油挥发物暴露</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="exp_voc_0" name="exp_voc" value="0" checked>
+ <span for="exp_voc_0">否，不接触或很少接触</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="exp_voc_1" name="exp_voc" value="1">
+ <span for="exp_voc_1">是，经常接触</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-name">油气、VOC（挥发性有机物）</div>
+ <div class="chemical-detail"><span class="info-icon">📍</span>常见于：储油罐、装卸区、加油站、生产车间</div>
+ <div class="chemical-hazard">⚠️ 健康风险：刺激呼吸道，长期暴露可能影响生殖健康</div>
+ <div class="chemical-protection">🛡️ 防护建议：在通风处工作，定期监测空气质量</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>有机溶剂暴露</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="exp_solvent_0" name="exp_solvent" value="0" checked>
+ <span for="exp_solvent_0">否，不接触或很少接触</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="exp_solvent_1" name="exp_solvent" value="1">
+ <span for="exp_solvent_1">是，经常接触</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-name">清洗剂、稀释剂</div>
+ <div class="chemical-detail"><span class="info-icon">📍</span>常见于：设备清洗、零件除油、涂料稀释</div>
+ <div class="chemical-hazard">⚠️ 健康风险：损害肝脏肾脏，可能影响激素平衡</div>
+ <div class="chemical-protection">🛡️ 防护建议：使用低毒替代品，戴防护眼镜和手套</div>
+ </div>
+ </div>
+ </div>
+ 
+ <div class="info-box">
+ <h4>📝 填写指南</h4>
+ <p>如果您在工作中<strong>经常接触</strong>或<strong>每天接触</strong>上述化学物质，请选择"是"。如果只是偶尔接触或基本不接触，请选择"否"。</p>
+ </div>
+ </div>
+
+ <!-- 三、职业暴露情况 -->
+ <div class="section">
+ <h3>⚠️ 三、职业暴露情况</h3>
+ <div class="info-box">
+ <h4>💡 暴露情况说明</h4>
+ <p>以下信息有助于评估您在工作中的具体暴露情况，请根据实际情况填写。</p>
+ </div>
+ 
+ <div class="form-grid">
+ <div class="form-group">
+ <label>日均化学接触时长(小时)</label>
+ <div class="slider-container">
+ <input type="range" id="daily_exposure" min="0" max="12" value="4" step="0.5">
+ <div class="slider-value">
+ <span id="daily_exposure_value">4</span>
+ <span class="unit">小时</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">平均每天接触化学物质的小时数</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>累计有害作业年限(年)</label>
+ <div class="slider-container">
+ <input type="range" id="cumulative_exp_years" min="0" max="40" value="8" step="0.5">
+ <div class="slider-value">
+ <span id="cumulative_exp_years_value">8</span>
+ <span class="unit">年</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">从事有害作业的总年限</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>长期倒班/夜班</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="shift_work_0" name="shift_work" value="0" checked>
+ <span for="shift_work_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="shift_work_1" name="shift_work" value="1">
+ <span for="shift_work_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">经常上夜班或轮班工作超过3年</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>未规范佩戴防护用品</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="poor_protection_0" name="poor_protection" value="0" checked>
+ <span for="poor_protection_0">否，规范佩戴</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="poor_protection_1" name="poor_protection" value="1">
+ <span for="poor_protection_1">是，有时未佩戴</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">工作时未按规定佩戴防护口罩、手套等</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>皮肤直接接触化学品</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="skin_contact_0" name="skin_contact" value="0" checked>
+ <span for="skin_contact_0">否，有防护</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="skin_contact_1" name="skin_contact" value="1">
+ <span for="skin_contact_1">是，有时直接接触</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">皮肤直接接触化学液体、粉尘等</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>长期无防护吸入</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="long_inhalation_0" name="long_inhalation" value="0" checked>
+ <span for="long_inhalation_0">否，有防护</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="long_inhalation_1" name="long_inhalation" value="1">
+ <span for="long_inhalation_1">是，有时无防护吸入</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">在有害气体环境中未佩戴防护口罩</div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- 四、基本信息 -->
+ <div class="section">
+ <h3>👵 四、基本信息</h3>
+ <div class="info-box">
+ <h4>💡 个人信息说明</h4>
+ <p>以下信息有助于评估您的个人健康状况和生活方式对乳腺癌风险的影响。</p>
+ </div>
+ 
+ <div class="form-grid">
+ <div class="form-group">
+ <label>年龄</label>
+ <div class="slider-container">
+ <input type="range" id="age" min="20" max="80" value="45">
+ <div class="slider-value">
+ <span id="age_value">45</span>
+ <span class="unit">岁</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">年龄是乳腺癌风险评估的重要因素</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>BMI指数</label>
+ <div class="slider-container">
+ <input type="range" id="bmi" min="15" max="40" value="24" step="0.1">
+ <div class="slider-value">
+ <span id="bmi_value">24.0</span>
+ <span class="unit">kg/m²</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">体重(kg) ÷ 身高(m)²，正常范围18.5-24</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>初潮年龄</label>
+ <div class="slider-container">
+ <input type="range" id="age_menarche" min="8" max="20" value="13" step="0.1">
+ <div class="slider-value">
+ <span id="age_menarche_value">13.0</span>
+ <span class="unit">岁</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">第一次月经来潮的年龄</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>绝经年龄（未绝经填99）</label>
+ <div class="slider-container">
+ <input type="range" id="age_menopause" min="40" max="99" value="50">
+ <div class="slider-value">
+ <span id="age_menopause_value">50</span>
+ <span class="unit">岁</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">如果还未绝经，请填写99</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>怀孕次数</label>
+ <div class="slider-container">
+ <input type="range" id="pregnancy_times" min="0" max="10" value="2">
+ <div class="slider-value">
+ <span id="pregnancy_times_value">2</span>
+ <span class="unit">次</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">包括所有怀孕经历（含流产）</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>生产次数</label>
+ <div class="slider-container">
+ <input type="range" id="birth_times" min="0" max="10" value="2">
+ <div class="slider-value">
+ <span id="birth_times_value">2</span>
+ <span class="unit">次</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">成功分娩的次数</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>哺乳月数</label>
+ <div class="slider-container">
+ <input type="range" id="breastfeed_months" min="0" max="36" value="6" step="0.5">
+ <div class="slider-value">
+ <span id="breastfeed_months_value">6.0</span>
+ <span class="unit">月</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">累计哺乳时间（月）</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>每周运动小时数</label>
+ <div class="slider-container">
+ <input type="range" id="exercise_weekly" min="0" max="20" value="3" step="0.5">
+ <div class="slider-value">
+ <span id="exercise_weekly_value">3.0</span>
+ <span class="unit">小时</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">中等强度运动，如快走、慢跑、瑜伽</div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- 五、既往史与生活习惯 -->
+ <div class="section">
+ <h3>📋 五、既往史与生活习惯</h3>
+ <div class="info-box">
+ <h4>💡 风险因素说明</h4>
+ <p>以下因素可能影响乳腺癌风险，请根据实际情况选择。</p>
+ </div>
+ 
+ <div class="form-grid">
+ <div class="form-group">
+ <label>直系亲属乳腺癌史</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="family_breast_cancer_0" name="family_breast_cancer" value="0" checked>
+ <span for="family_breast_cancer_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="family_breast_cancer_1" name="family_breast_cancer" value="1">
+ <span for="family_breast_cancer_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">母亲、姐妹、女儿有乳腺癌病史</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>既往乳腺增生/结节/疾病</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="past_breast_disease_0" name="past_breast_disease" value="0" checked>
+ <span for="past_breast_disease_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="past_breast_disease_1" name="past_breast_disease" value="1">
+ <span for="past_breast_disease_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">曾患乳腺增生、纤维瘤、囊肿等疾病</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>吸烟</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="smoke_0" name="smoke" value="0" checked>
+ <span for="smoke_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="smoke_1" name="smoke" value="1">
+ <span for="smoke_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">包括主动吸烟和被动吸烟</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>饮酒</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="alcohol_0" name="alcohol" value="0" checked>
+ <span for="alcohol_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="alcohol_1" name="alcohol" value="1">
+ <span for="alcohol_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">每周饮酒超过2次</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>高脂饮食</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="high_fat_0" name="high_fat" value="0" checked>
+ <span for="high_fat_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="high_fat_1" name="high_fat" value="1">
+ <span for="high_fat_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">经常食用油炸、肥肉等高脂食物</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>长期避孕药使用</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="long_contraceptive_0" name="long_contraceptive" value="0" checked>
+ <span for="long_contraceptive_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="long_contraceptive_1" name="long_contraceptive" value="1">
+ <span for="long_contraceptive_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">连续使用口服避孕药超过5年</div>
+ </div>
+ </div>
+ 
+ <div class="form-group">
+ <label>激素治疗史</label>
+ <div class="radio-group">
+ <div class="radio-option">
+ <input type="radio" id="hormone_therapy_0" name="hormone_therapy" value="0" checked>
+ <span for="hormone_therapy_0">否</span>
+ </div>
+ <div class="radio-option">
+ <input type="radio" id="hormone_therapy_1" name="hormone_therapy" value="1">
+ <span for="hormone_therapy_1">是</span>
+ </div>
+ </div>
+ <div class="chemical-info">
+ <div class="chemical-detail">因更年期等症状接受过激素治疗</div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- 加载状态 -->
+ <div class="loading" id="loading">
+ <div class="spinner"></div>
+ <p>正在评估中，请稍候...</p>
+ </div>
+
+ <button class="btn" onclick="getResult()">开始评估</button>
+
+ <!-- 评估结果展示区域 -->
+ <div id="result" class="result" style="display:none;">
+ <h3>📊 评估结果</h3>
+ <p>乳腺癌风险概率：<span id="p_risk"></span></p>
+ <h2 id="p_level"></h2>
+ 
+ <div class="info-box">
+ <h4>📋 结果说明</h4>
+ <p>本评估基于科学模型和流行病学研究，结果仅供参考。如有疑问或需要进一步检查，请咨询专业医生。</p>
+ </div>
+ 
+ <!-- 模型评估图 -->
+ <div class="chart-group">
+ <img src="../api/roc_curve.png" alt="ROC曲线">
+ </div>
+ 
+ <!-- 专项建议卡片 -->
+ <div class="advice-card">
+ <h4>📋 诊疗建议</h4>
+ <div id="exam_advice"></div>
+ </div>
+ <div class="advice-card">
+ <h4>🍎 饮食建议</h4>
+ <div id="diet_advice"></div>
+ </div>
+ <div class="advice-card">
+ <h4>🏃 运动建议</h4>
+ <div id="sport_advice"></div>
+ </div>
+ <div class="advice-card">
+ <h4>📌 生活习惯建议</h4>
+ <div id="life_advice"></div>
+ </div>
+ <div class="advice-card">
+ <h4>💊 治疗干预建议</h4>
+ <div id="treat_advice"></div>
+ </div>
+ 
+ <div class="info-box">
+ <h4>💡 后续步骤建议</h4>
+ <p>1. 将评估结果保存或打印，就诊时带给医生参考<br>
+ 2. 根据建议调整生活方式和工作防护<br>
+ 3. 定期进行乳腺健康检查<br>
+ 4. 如有乳腺不适，及时就医检查</p>
+ </div>
+ 
+ <button class="btn" onclick="window.location.reload()" style="background:#666;margin-top:16px;">重新评估</button>
+ </div>
+ </div>
+
+ <script>
+ // 滑块值更新函数
+ function updateSliderValue(sliderId, valueId, precision = 0) {
+ const slider = document.getElementById(sliderId);
+ const valueDisplay = document.getElementById(valueId);
+ 
+ slider.addEventListener('input', function() {
+ const value = parseFloat(this.value);
+ valueDisplay.textContent = precision === 0 ? value.toFixed(0) : value.toFixed(precision);
+ });
+ 
+ // 初始化显示
+ const initialValue = parseFloat(slider.value);
+ valueDisplay.textContent = precision === 0 ? initialValue.toFixed(0) : initialValue.toFixed(precision);
+ }
+ 
+ // 初始化所有滑块
+ document.addEventListener('DOMContentLoaded', function() {
+ // 数值滑块
+ updateSliderValue('work_years', 'work_years_value', 1);
+ updateSliderValue('daily_exposure', 'daily_exposure_value', 1);
+ updateSliderValue('cumulative_exp_years', 'cumulative_exp_years_value', 1);
+ updateSliderValue('age', 'age_value', 0);
+ updateSliderValue('bmi', 'bmi_value', 1);
+ updateSliderValue('age_menarche', 'age_menarche_value', 1);
+ updateSliderValue('age_menopause', 'age_menopause_value', 0);
+ updateSliderValue('pregnancy_times', 'pregnancy_times_value', 0);
+ updateSliderValue('birth_times', 'birth_times_value', 0);
+ updateSliderValue('breastfeed_months', 'breastfeed_months_value', 1);
+ updateSliderValue('exercise_weekly', 'exercise_weekly_value', 1);
+ 
+ // 为单选按钮添加视觉反馈
+ const radioGroups = document.querySelectorAll('.radio-group');
+ radioGroups.forEach(group => {
+ const radios = group.querySelectorAll('input[type="radio"]');
+ radios.forEach(radio => {
+ radio.addEventListener('change', function() {
+ // 移除所有兄弟选项的选中样式
+ const siblings = group.querySelectorAll('.radio-option');
+ siblings.forEach(sibling => {
+ sibling.style.backgroundColor = '';
+ });
+ 
+ // 为选中的选项添加背景色
+ if (this.checked) {
+ this.closest('.radio-option').style.backgroundColor = '#eef5ff';
+ }
+ });
+ });
+ });
+ 
+ // 移动端优化：防止键盘弹出时页面布局混乱
+ const inputs = document.querySelectorAll('input, select');
+ inputs.forEach(input => {
+ input.addEventListener('focus', function() {
+ setTimeout(() => {
+ this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+ }, 300);
+ });
+ });
+ 
+ // 添加表单验证提示
+ const form = document.querySelector('.card');
+ form.addEventListener('submit', function(e) {
+ e.preventDefault();
+ });
+ });
+ 
+ // 防止iOS缩放
+ document.addEventListener('touchstart', function(event) {
+ if(event.touches.length > 1) {
+ event.preventDefault();
+ }
+ }, { passive: false });
+ 
+ let lastTouchEnd = 0;
+ document.addEventListener('touchend', function(event) {
+ const now = (new Date()).getTime();
+ if(now - lastTouchEnd <= 300) {
+ event.preventDefault();
+ }
+ lastTouchEnd = now;
+ }, false);
+ 
+ // 评估函数
+ async function getResult() {
+ // 显示加载状态
+ document.getElementById('loading').style.display = 'block';
+ document.getElementById('result').style.display = 'none';
+ 
+ // 收集单选按钮数据
+ function getRadioValue(name) {
+ const selected = document.querySelector(`input[name="${name}"]:checked`);
+ return selected ? parseFloat(selected.value) : 0;
+ }
+ 
+ // 收集滑块数据
+ function getSliderValue(id) {
+ return parseFloat(document.getElementById(id).value);
+ }
+ 
+ // 收集所有数据
+ const data = {
+ occ_lab: getRadioValue('occ_lab'),
+ occ_process: getRadioValue('occ_process'),
+ occ_water: getRadioValue('occ_water'),
+ work_years: getSliderValue('work_years'),
+ daily_exposure: getSliderValue('daily_exposure'),
+ exp_benzene: getRadioValue('exp_benzene'),
+ exp_pahs: getRadioValue('exp_pahs'),
+ exp_heavy_metal: getRadioValue('exp_heavy_metal'),
+ exp_voc: getRadioValue('exp_voc'),
+ exp_solvent: getRadioValue('exp_solvent'),
+ cumulative_exp_years: getSliderValue('cumulative_exp_years'),
+ shift_work: getRadioValue('shift_work'),
+ poor_protection: getRadioValue('poor_protection'),
+ skin_contact: getRadioValue('skin_contact'),
+ long_inhalation: getRadioValue('long_inhalation'),
+ age: getSliderValue('age'),
+ bmi: getSliderValue('bmi'),
+ age_menarche: getSliderValue('age_menarche'),
+ age_menopause: getSliderValue('age_menopause'),
+ pregnancy_times: getSliderValue('pregnancy_times'),
+ birth_times: getSliderValue('birth_times'),
+ breastfeed_months: getSliderValue('breastfeed_months'),
+ family_breast_cancer: getRadioValue('family_breast_cancer'),
+ past_breast_disease: getRadioValue('past_breast_disease'),
+ smoke: getRadioValue('smoke'),
+ alcohol: getRadioValue('alcohol'),
+ high_fat: getRadioValue('high_fat'),
+ exercise_weekly: getSliderValue('exercise_weekly'),
+ long_contraceptive: getRadioValue('long_contraceptive'),
+ hormone_therapy: getRadioValue('hormone_therapy')
+ };
+
+ try {
+ // 调用后端接口
+ const res = await fetch('../api/predict', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(data)
+ });
+ const r = await res.json();
+ 
+ // 隐藏加载状态
+ document.getElementById('loading').style.display = 'none';
+ 
+ const dom = document.getElementById('result');
+ dom.style.display = 'block';
+ 
+ // 滚动到结果区域
+ dom.scrollIntoView({ behavior: 'smooth', block: 'start' });
+ 
+ // 风险等级样式适配
+ let levelClass = 'low';
+ if(r.risk_level === '中风险') levelClass = 'mid';
+ else if(r.risk_level === '高风险') levelClass = 'high';
+ else if(r.risk_level === '极高风险') levelClass = 'very-high';
+ 
+ dom.className = 'result ' + levelClass;
+
+ // 赋值展示所有建议
+ document.getElementById('p_risk').innerText = (r.risk_probability * 100).toFixed(2) + '%';
+ document.getElementById('p_level').innerText = r.risk_level;
+ document.getElementById('exam_advice').innerText = r.诊疗建议;
+ document.getElementById('diet_advice').innerText = r.饮食建议;
+ document.getElementById('sport_advice').innerText = r.运动建议;
+ document.getElementById('life_advice').innerText = r.生活习惯建议;
+ document.getElementById('treat_advice').innerText = r.治疗干预建议;
+ } catch(e) {
+ // 隐藏加载状态
+ document.getElementById('loading').style.display = 'none';
+ alert('评估服务暂时不可用，请稍后重试');
+ console.error(e);
+ }
+ }
+ </script>
+</body>
+</html>

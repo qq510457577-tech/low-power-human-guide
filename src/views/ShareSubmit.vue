@@ -116,7 +116,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-const API_BASE = 'http://43.133.192.17:8888'
+// API 和前端同端口部署，使用相对路径
+const API_BASE = ''
 
 const router = useRouter()
 

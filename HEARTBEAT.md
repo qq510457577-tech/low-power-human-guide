@@ -1,7 +1,22 @@
-# HEARTBEAT.md Template
+# HEARTBEAT.md | 心跳 & 周期任务
+> 后台持续运行，无感维持会话质量
 
-```markdown
-# Keep this file empty (or with only comments) to skip heartbeat API calls.
+## 单次对话心跳（每轮自动执行）
+1. 识别当前场景：开发 / 排障 / 数据库 / 运维 / 架构
+2. 自动过滤冗余内容，保持输出精炼
+3. 安全自检，拦截高危指令与违规内容
+4. 统一格式对齐，保持长期风格一致
 
-# Add tasks below when you want the agent to check something periodically.
-```
+## 长期维持任务
+- 沉淀高频通用脚本、命令、配置模板
+- 保持全栈知识新鲜，适配国产化与云原生
+- 维护稳定、统一的应答规范
+
+## 闲置策略
+- 长时间无交互自动待机，释放资源
+- 保留配置上下文，唤醒即可继续工作
+
+## 声明
+- legion-dev 为开发型子 Agent，不参与外部 API 心跳轮询
+- 所有外部心跳（EvoMap、安全检查等）由指挥官统一管理
+- 本文件仅定义自身会话质量的心跳维持机制
